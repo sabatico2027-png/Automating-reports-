@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منظومة الرصد وأتمتة البلاغات الرقمية | SOC Automation</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+            background-color: #060913;
+            color: #e2e8f0;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(14, 165, 233, 0.08) 0%, transparent 45%),
+                radial-gradient(circle at 85% 80%, rgba(99, 102, 241, 0.08) 0%, transparent 45%);
+        }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(51, 65, 85, 0.6);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+        }
+        .glass-input {
+            background: rgba(2, 6, 23, 0.75);
+            border: 1px solid rgba(51, 65, 85, 0.8);
+            color: #f8fafc;
+            transition: all 0.2s ease;
+        }
+        .glass-input:focus {
+            outline: none;
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- الشريط العلوي -->
+    <header class="glass-panel sticky top-0 z-40 border-b border-slate-800/80 px-6 py-3.5">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+                    <i data-lucide="shield-alert" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-white tracking-tight">منظومة الرصد وأتمتة البلاغات الرقمية</h1>
+                    <div class="flex items-center gap-2 text-xs text-slate-400">
+                        <span id="workerStatusDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>محرك الخلفية نشط • بيانات حقيقية 100%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2.5 flex-wrap">
+                <span id="ghBadge" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/90 text-slate-400 border border-slate-700 flex items-center gap-1.5">
+                    <i data-lucide="github" class="w-3.5 h-3.5"></i>
+                    <span>GitHub غير مربوط</span>
+                </span>
+                <button onclick="openModal('integrationsModal')" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-sky-500/15 text-sky-400 border border-sky-500/30 hover:bg-sky-500/25 transition flex items-center gap-1.5">
+                    <i data-lucide="plug-zap" class="w-4 h-4"></i>
+                    <span>إعدادات الربط (GitHub & APIs)</span>
+                </button>
+                <button id="syncNowBtn" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/25 transition flex items-center gap-1.5">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    <span>مزامنة فورية</span>
+                </button>
+                <button id="exportJsonBtn" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center gap-1.5">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>تصدير JSON</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="max-w-7xl w-full mx-auto px-6 py-6 flex-1 space-y-6">
+
+        <!-- بطاقات الإحصاءات الفعلية (تبدأ من 0 وتُحسب من البيانات الحقيقية فقط) -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-400">إجمالي البلاغات المسجلة</p>
+                    <h2 id="statTotal" class="text-3xl font-bold text-white mt-1 mono">0</h2>
+                </div>
+                <div class="w-11 h-11 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                    <i data-lucide="layers" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-400">تذاكر متزامنة (GitHub)</p>
+                    <h2 id="statSynced" class="text-3xl font-bold text-emerald-400 mt-1 mono">0</h2>
+                </div>
+                <div class="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-400">بلاغات مغلقة / معالجة</p>
+                    <h2 id="statClosed" class="text-3xl font-bold text-indigo-400 mt-1 mono">0</h2>
+                </div>
+                <div class="w-11 h-11 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                    <i data-lucide="shield-check" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-400">طابور المعالجة الخلفية</p>
+                    <h2 id="statQueue" class="text-3xl font-bold text-amber-400 mt-1 mono">0</h2>
+                </div>
+                <div class="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                    <i data-lucide="cpu" class="w-5 h-5"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- القسم الأوسط: نموذج استقبال البلاغات + الرسم البياني وسجل الخلفية -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- نموذج إدخال البلاغ -->
+            <div class="lg:col-span-7 glass-panel rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-5 border-b border-slate-800 pb-3.5">
+                    <div class="flex items-center gap-2.5">
+                        <i data-lucide="radio" class="w-5 h-5 text-sky-400"></i>
+                        <h3 class="font-bold text-base text-white">استقبال وإطلاق بلاغ جديد</h3>
+                    </div>
+                    <span class="text-[11px] px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 mono">Auto-Dispatch Enabled</span>
+                </div>
+
+                <form id="reportForm" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1.5">المنصة المستهدفة *</label>
+                            <select id="platformInput" required class="glass-input w-full rounded-xl px-3.5 py-2.5 text-sm">
+                                <option value="x">X (Twitter)</option>
+                                <option value="facebook">Facebook (Meta)</option>
+                                <option value="instagram">Instagram (Meta)</option>
+                                <option value="tiktok">TikTok</option>
+                                <option value="youtube">YouTube</option>
+                                <option value="telegram">Telegram</option>
+                                <option value="snapchat">Snapchat</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1.5">نوع الهدف *</label>
+                            <select id="targetTypeInput" required class="glass-input w-full rounded-xl px-3.5 py-2.5 text-sm">
+                                <option value="حساب كامل (Account)">حساب كامل (Account / Profile)</option>
+                                <option value="منشور / تغريدة (Post)">منشور / تغريدة (Post)</option>
+                                <option value="مقطع فيديو / ريلز (Video)">مقطع فيديو / ريلز (Video / Reel)</option>
+                                <option value="قناة / مجموعة (Channel)">قناة / مجموعة (Channel / Group)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1.5">معرف الحساب (@Username)</label>
+                            <input type="text" id="handleInput" placeholder="@example_account" class="glass-input w-full rounded-xl px-3.5 py-2.5 text-sm mono" dir="ltr">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1.5">تصنيف المخالفة القانونية *</label>
+                            <select id="violationInput" required class="glass-input w-full rounded-xl px-3.5 py-2.5 text-sm">
+                                <option value="impersonation">انتحال شخصية / هوية مزيفة</option>
+                                <option value="copyright">انتهاك حقوق الملكية الفكرية (DMCA)</option>
+                                <option value="extortion">ابتزاز أو نشر بيانات خاصة</option>
+                                <option value="violence">تحريض على العنف أو خطاب كراهية</option>
+                                <option value="spam">احتيال إلكتروني أو حسابات وهمية</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">الرابط المباشر للمحتوى أو الحساب المخالف *</label>
+                        <input type="url" id="urlInput" required placeholder="https://..." class="glass-input w-full rounded-xl px-3.5 py-2.5 text-sm mono" dir="ltr">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">وصف الأدلة والوقائع (يُدرج في الخطاب القانوني والتذكرة)</label>
+                        <textarea id="notesInput" rows="3" placeholder="اكتب تفاصيل الانتهاك بدقة لتعزيز قبول البلاغ لدى فريق الثقة والأمان..." class="glass-input w-full rounded-xl px-3.5 py-2.5 text-sm"></textarea>
+                    </div>
+
+                    <div class="pt-2 flex flex-wrap items-center gap-3">
+                        <button type="submit" class="flex-1 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-semibold py-3 px-5 rounded-xl shadow-lg shadow-sky-500/20 transition flex items-center justify-center gap-2 text-sm">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                            <span>تسجيل وأتمتة البلاغ الآن</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- العمود الجانبي: التحليل الحي + سجل عمليات الخلفية -->
+            <div class="lg:col-span-5 flex flex-col gap-6">
+                <!-- الرسم البياني الفعلي -->
+                <div class="glass-panel rounded-2xl p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                            <i data-lucide="bar-chart-3" class="w-4 h-4 text-indigo-400"></i>
+                            <span>التوزيع الفعلي للبلاغات حسب المنصة</span>
+                        </h3>
+                    </div>
+                    <div class="h-44 flex items-center justify-center relative">
+                        <canvas id="platformChart"></canvas>
+                        <p id="emptyChartMsg" class="text-xs text-slate-500 absolute">لا توجد بيانات مسجلة لعرض الرسم البياني بعد</p>
+                    </div>
+                </div>
+
+                <!-- سجل محرك الخلفية (Worker Terminal) -->
+                <div class="glass-panel rounded-2xl p-5 flex-1 flex flex-col">
+                    <div class="flex items-center justify-between mb-2.5">
+                        <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                            <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i>
+                            <span>سجل عمليات الخلفية (Worker Log)</span>
+                        </h3>
+                        <button onclick="document.getElementById('workerConsole').innerHTML=''" class="text-[11px] text-slate-400 hover:text-white">مسح السجل</button>
+                    </div>
+                    <div id="workerConsole" class="bg-slate-950/90 border border-slate-800/90 rounded-xl p-3 h-44 overflow-y-auto mono text-[11px] space-y-1.5" dir="ltr">
+                        <!-- يُملأ تلقائياً بأحداث worker.js الحقيقية -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- جدول سجل البلاغات الحقيقية -->
+        <section class="glass-panel rounded-2xl p-6">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div class="flex items-center gap-2.5">
+                    <i data-lucide="database" class="w-5 h-5 text-sky-400"></i>
+                    <h3 class="font-bold text-base text-white">سجل البلاغات والتذاكر الموثقة</h3>
+                </div>
+                <input type="text" id="searchInput" placeholder="بحث بالمرجع، الحساب، أو الرابط..." class="glass-input rounded-xl px-3.5 py-2 text-xs w-64">
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-right border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800 text-xs text-slate-400">
+                            <th class="py-3 px-3">المرجع</th>
+                            <th class="py-3 px-3">المنصة</th>
+                            <th class="py-3 px-3">الهدف والرابط</th>
+                            <th class="py-3 px-3">المخالفة</th>
+                            <th class="py-3 px-3">حالة الأتمتة</th>
+                            <th class="py-3 px-3 text-left">إجراءات الإرسال</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsTableBody" class="divide-y divide-slate-800/60 text-sm">
+                        <!-- يُملأ ديناميكياً -->
+                    </tbody>
+                </table>
+                <div id="emptyTableState" class="py-12 text-center text-slate-500 text-sm">
+                    لا توجد بلاغات مسجلة حالياً. ابدأ بإدخال أول بلاغ حقيقي من النموذج أعلاه.
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- نافذة إعدادات الربط (GitHub & Webhooks & Telegram) -->
+    <div id="integrationsModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="glass-panel rounded-2xl max-w-xl w-full p-6 border border-slate-700 space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-base text-white flex items-center gap-2">
+                    <i data-lucide="plug" class="w-5 h-5 text-sky-400"></i>
+                    <span>إعدادات الربط السحابي والأتمتة الحقيقية</span>
+                </h3>
+                <button onclick="closeModal('integrationsModal')" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                    <h4 class="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+                        <i data-lucide="github" class="w-4 h-4"></i>
+                        <span>1. ربط مستودع GitHub (تحويل Issues إلى قاعدة بيانات سحابية)</span>
+                    </h4>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" id="ghOwnerInput" placeholder="اسم المستخدم (Owner)" class="glass-input rounded-lg px-3 py-2 text-xs mono" dir="ltr">
+                        <input type="text" id="ghRepoInput" placeholder="اسم المستودع (Repo)" class="glass-input rounded-lg px-3 py-2 text-xs mono" dir="ltr">
+                    </div>
+                    <input type="password" id="ghTokenInput" placeholder="GitHub Personal Access Token (Issues: Read & Write)" class="glass-input w-full rounded-lg px-3 py-2 text-xs mono" dir="ltr">
+                </div>
+
+                <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                    <h4 class="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
+                        <i data-lucide="webhook" class="w-4 h-4"></i>
+                        <span>2. الربط الخارجي (n8n / Make Webhook & Telegram Bot)</span>
+                    </h4>
+                    <input type="url" id="webhookUrlInput" placeholder="Webhook URL (اختياري: https://...)" class="glass-input w-full rounded-lg px-3 py-2 text-xs mono" dir="ltr">
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="password" id="tgTokenInput" placeholder="Telegram Bot Token (اختياري)" class="glass-input rounded-lg px-3 py-2 text-xs mono" dir="ltr">
+                        <input type="text" id="tgChatIdInput" placeholder="Telegram Chat ID (اختياري)" class="glass-input rounded-lg px-3 py-2 text-xs mono" dir="ltr">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button onclick="closeModal('integrationsModal')" class="px-4 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800">إلغاء</button>
+                <button id="saveIntegrationsBtn" class="px-5 py-2.5 rounded-xl text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-white transition">
+                    حفظ وفحص الاتصال الحقيقي
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة معاينة الخطاب القانوني والإرسال الرسمي -->
+    <div id="legalModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="glass-panel rounded-2xl max-w-2xl w-full p-6 border border-slate-700 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-base text-white">الخطاب القانوني المولد وبوابة الإرسال الرسمي</h3>
+                <button onclick="closeModal('legalModal')" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <textarea id="legalTextContent" rows="12" readonly class="glass-input w-full rounded-xl p-4 text-xs leading-relaxed mono"></textarea>
+
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <button id="copyLegalBtn" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-1.5">
+                    <i data-lucide="copy" class="w-4 h-4"></i>
+                    <span>نسخ نص الخطاب</span>
+                </button>
+                <div class="flex items-center gap-2.5">
+                    <a id="mailtoOfficialBtn" href="#" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5">
+                        <i data-lucide="mail" class="w-4 h-4"></i>
+                        <span>إرسال عبر البريد الرسمي</span>
+                    </a>
+                    <a id="openOfficialFormBtn" href="#" target="_blank" rel="noopener noreferrer" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5">
+                        <i data-lucide="external-link" class="w-4 h-4"></i>
+                        <span>فتح نموذج الإبلاغ الرسمي بالمنصة</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ربط الملفات المستقلة (connectors.js و worker.js) -->
+    <script type="module">
+        import { ExternalConnectors, PLATFORM_ENDPOINTS, VIOLATION_LABELS } from './connectors.js';
+        import { BackgroundReportWorker } from './worker.js';
+
+        lucide.createIcons();
+
+        const connectors = new ExternalConnectors();
+        let chartInstance = null;
+
+        // تحديث واجهة المستخدم عند أي تغيير في قاعدة البيانات
+        const renderUI = (reports, queue) => {
+            document.getElementById('statTotal').textContent = reports.length;
+            document.getElementById('statSynced').textContent = reports.filter(r => r.status === 'synced').length;
+            document.getElementById('statClosed').textContent = reports.filter(r => r.status === 'closed').length;
+            document.getElementById('statQueue').textContent = queue.length;
+
+            renderTable(reports);
+            renderChart(reports);
+        };
+
+        // طباعة سجلات الخلفية الحقيقية
+        const appendLog = (entry) => {
+            const consoleEl = document.getElementById('workerConsole');
+            const colorMap = { INFO: 'text-sky-400', SUCCESS: 'text-emerald-400', WARN: 'text-amber-400', ERROR: 'text-rose-400' };
+            const line = document.createElement('div');
+            line.className = 'leading-relaxed';
+            line.innerHTML = `<span class="text-slate-500">[${entry.time}]</span> <span class="${colorMap[entry.level] || 'text-slate-300'} font-semibold">[${entry.level}]</span> <span class="text-slate-200">${entry.message}</span> ${entry.meta ? `<span class="text-slate-500">(${entry.meta})</span>` : ''}`;
+            consoleEl.appendChild(line);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        };
+
+        const worker = new BackgroundReportWorker(connectors, renderUI, appendLog);
+
+        // رسم الجدول
+        function renderTable(reports) {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = reports.filter(r =>
+                r.id.toLowerCase().includes(query) ||
+                (r.handle && r.handle.toLowerCase().includes(query)) ||
+                r.url.toLowerCase().includes(query)
+            );
+
+            const tbody = document.getElementById('reportsTableBody');
+            const emptyState = document.getElementById('emptyTableState');
+            tbody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            const statusBadges = {
+                queued: '<span class="px-2.5 py-1 rounded-md text-[11px] bg-amber-500/15 text-amber-300 border border-amber-500/30">قيد المعالجة</span>',
+                synced: '<span class="px-2.5 py-1 rounded-md text-[11px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">متزامن (GitHub)</span>',
+                closed: '<span class="px-2.5 py-1 rounded-md text-[11px] bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">مغلق / تمت المعالجة</span>',
+                ready: '<span class="px-2.5 py-1 rounded-md text-[11px] bg-sky-500/15 text-sky-300 border border-sky-500/30">جاهز للإرسال</span>',
+                failed: '<span class="px-2.5 py-1 rounded-md text-[11px] bg-rose-500/15 text-rose-300 border border-rose-500/30">فشل الإرسال</span>'
+            };
+
+            filtered.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/30 transition';
+                tr.innerHTML = `
+                    <td class="py-3.5 px-3 mono text-xs text-sky-400 font-semibold">
+                        ${r.id}
+                        ${r.githubIssueNumber ? `<a href="${r.githubIssueUrl}" target="_blank" class="block text-[11px] text-emerald-400 hover:underline mt-0.5">Issue #${r.githubIssueNumber} ↗</a>` : ''}
+                    </td>
+                    <td class="py-3.5 px-3 text-xs font-medium text-white">${PLATFORM_ENDPOINTS[r.platform]?.name || r.platform}</td>
+                    <td class="py-3.5 px-3 text-xs">
+                        <div class="text-slate-200 font-medium">${r.handle || r.targetType}</div>
+                        <a href="${r.url}" target="_blank" class="text-slate-400 hover:text-sky-400 mono text-[11px] truncate block max-w-[210px]" dir="ltr">${r.url}</a>
+                    </td>
+                    <td class="py-3.5 px-3 text-xs text-slate-300">${VIOLATION_LABELS[r.violation]?.ar || r.violation}</td>
+                    <td class="py-3.5 px-3">${statusBadges[r.status] || r.status}</td>
+                    <td class="py-3.5 px-3 text-left">
+                        <div class="flex items-center justify-end gap-1.5">
+                            <button data-legal="${r.id}" title="الخطاب القانوني والإرسال الرسمي" class="p-2 rounded-lg bg-sky-500/15 text-sky-400 hover:bg-sky-500/25 transition">
+                                <i data-lucide="file-text" class="w-4 h-4"></i>
+                            </button>
+                            ${r.status === 'failed' ? `
+                            <button data-retry="${r.id}" title="إعادة المحاولة" class="p-2 rounded-lg bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition">
+                                <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+                            </button>` : ''}
+                            <button data-delete="${r.id}" title="حذف السجل" class="p-2 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            lucide.createIcons();
+        }
+
+        // الرسم البياني الفعلي
+        function renderChart(reports) {
+            const emptyMsg = document.getElementById('emptyChartMsg');
+            const ctx = document.getElementById('platformChart').getContext('2d');
+
+            if (reports.length === 0) {
+                emptyMsg.classList.remove('hidden');
+                if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+                return;
+            }
+            emptyMsg.classList.add('hidden');
+
+            const counts = {};
+            reports.forEach(r => {
+                const name = PLATFORM_ENDPOINTS[r.platform]?.name || r.platform;
+                counts[name] = (counts[name] || 0) + 1;
+            });
+
+            if (chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(counts),
+                    datasets: [{
+                        label: 'عدد البلاغات الفعلية',
+                        data: Object.values(counts),
+                        backgroundColor: 'rgba(56, 189, 248, 0.55)',
+                        borderColor: '#38bdf8',
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1, color: '#94a3b8' }, grid: { color: 'rgba(51,65,85,0.3)' } },
+                        x: { ticks: { color: '#cbd5e1', font: { size: 11 } }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // إرسال النموذج
+        document.getElementById('reportForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const report = await worker.enqueueReport({
+                platform: document.getElementById('platformInput').value,
+                targetType: document.getElementById('targetTypeInput').value,
+                handle: document.getElementById('handleInput').value,
+                violation: document.getElementById('violationInput').value,
+                url: document.getElementById('urlInput').value,
+                notes: document.getElementById('notesInput').value
+            });
+            e.target.reset();
+            openLegalViewer(report);
+        });
+
+        // فتح نافذة الخطاب القانوني
+        function openLegalViewer(report) {
+            const notice = connectors.generateLegalNotice(report);
+            document.getElementById('legalTextContent').value = notice.body;
+            document.getElementById('openOfficialFormBtn').href = notice.officialFormUrl;
+            document.getElementById('mailtoOfficialBtn').href = `mailto:${notice.toEmail}?subject=${encodeURIComponent(notice.subject)}&body=${encodeURIComponent(notice.body)}`;
+            openModal('legalModal');
+        }
+
+        // أحداث الجدول
+        document.getElementById('reportsTableBody').addEventListener('click', (e) => {
+            const legalBtn = e.target.closest('[data-legal]');
+            const deleteBtn = e.target.closest('[data-delete]');
+            const retryBtn = e.target.closest('[data-retry]');
+
+            if (legalBtn) {
+                const report = worker.reports.find(r => r.id === legalBtn.dataset.legal);
+                if (report) openLegalViewer(report);
+            } else if (deleteBtn) {
+                worker.deleteReport(deleteBtn.dataset.delete);
+            } else if (retryBtn) {
+                worker.retryReport(retryBtn.dataset.retry);
+            }
+        });
+
+        // حفظ إعدادات الربط وفحصها
+        document.getElementById('saveIntegrationsBtn').addEventListener('click', async () => {
+            const owner = document.getElementById('ghOwnerInput').value;
+            const repo = document.getElementById('ghRepoInput').value;
+            const token = document.getElementById('ghTokenInput').value;
+            const webhookUrl = document.getElementById('webhookUrlInput').value;
+            const tgToken = document.getElementById('tgTokenInput').value;
+            const tgChatId = document.getElementById('tgChatIdInput').value;
+
+            connectors.saveGitHubConfig(owner, repo, token);
+            connectors.saveWebhookConfig(webhookUrl, tgToken, tgChatId);
+
+            if (owner && repo && token) {
+                try {
+                    const repoInfo = await connectors.verifyGitHubConnection();
+                    updateGitHubBadge(true, repoInfo.full_name);
+                    worker.log('SUCCESS', `تم التحقق والاتصال الفعلي بمستودع GitHub: ${repoInfo.full_name}`);
+                    await worker.syncWithGitHub();
+                } catch (err) {
+                    updateGitHubBadge(false);
+                    worker.log('ERROR', `فشل التحقق من مستودع GitHub: ${err.message}`);
+                }
+            }
+            closeModal('integrationsModal');
+        });
+
+        function updateGitHubBadge(connected, repoName = '') {
+            const badge = document.getElementById('ghBadge');
+            if (connected) {
+                badge.className = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5';
+                badge.innerHTML = `<i data-lucide="github" class="w-3.5 h-3.5"></i><span>متصل: ${repoName}</span>`;
+            } else {
+                badge.className = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30 flex items-center gap-1.5';
+                badge.innerHTML = `<i data-lucide="github" class="w-3.5 h-3.5"></i><span>خطأ في اتصال GitHub</span>`;
+            }
+            lucide.createIcons();
+        }
+
+        // نسخ الخطاب
+        document.getElementById('copyLegalBtn').addEventListener('click', () => {
+            navigator.clipboard.writeText(document.getElementById('legalTextContent').value);
+            worker.log('INFO', 'تم نسخ نص الخطاب القانوني المزدوج إلى الحافظة.');
+        });
+
+        // مزامنة يدوية وتصدير
+        document.getElementById('syncNowBtn').addEventListener('click', () => worker.syncWithGitHub());
+        document.getElementById('searchInput').addEventListener('input', () => renderTable(worker.reports));
+        document.getElementById('exportJsonBtn').addEventListener('click', () => {
+            const blob = new Blob([JSON.stringify(worker.reports, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `reports-export-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+        });
+
+        // دوال النوافذ
+        window.openModal = (id) => {
+            const el = document.getElementById(id);
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        };
+        window.closeModal = (id) => {
+            const el = document.getElementById(id);
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+        };
+
+        // التهيئة الأولية عند التحميل
+        if (connectors.githubConfig) {
+            document.getElementById('ghOwnerInput').value = connectors.githubConfig.owner || '';
+            document.getElementById('ghRepoInput').value = connectors.githubConfig.repo || '';
+            document.getElementById('ghTokenInput').value = connectors.githubConfig.token || '';
+            if (connectors.githubConfig.token) {
+                updateGitHubBadge(true, `${connectors.githubConfig.owner}/${connectors.githubConfig.repo}`);
+            }
+        }
+        if (connectors.webhookConfig) {
+            document.getElementById('webhookUrlInput').value = connectors.webhookConfig.webhookUrl || '';
+            document.getElementById('tgTokenInput').value = connectors.webhookConfig.telegramBotToken || '';
+            document.getElementById('tgChatIdInput').value = connectors.webhookConfig.telegramChatId || '';
+        }
+
+        renderUI(worker.reports, worker.queue);
+        worker.startAutoSync(60000);
+    </script>
+</body>
+</html>
